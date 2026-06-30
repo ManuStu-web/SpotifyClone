@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
         default:'user'
     }
 })
-
+    //here the 'user' <- used in music.model.js to store ID of the Artist
 const userModel = mongoose.model('user', userSchema);
 
 module.exports = userModel;
