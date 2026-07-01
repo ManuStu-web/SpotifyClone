@@ -1,32 +1,17 @@
-const jwt = require('jsonwebtoken');
 const musicModel = require('../models/music.model');
 const { uploadFile } = require('../Services/storage.service');
 const albumModel = require('../models/album.model');
 
 async function createMusic(req, res) {
-    const token = req.cookies?.token;
-
-    if (!token) {
-        return res.status(401).json({ message: 'Unauthorized' });
-    }
-
-    let decoded;
-
-    try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-
-        if (decoded.role !== 'artist') {
-            return res.status(403).json({ message: 'Not allowed' });
-        }
-    } catch (err) {
-        return res.status(401).json({ message: 'Unauthorized' });
-    }
-
     const { title } = req.body;
     const file = req.file;
 
     if (!file) {
         return res.status(400).json({ message: 'No music file provided' });
+    }
+
+    if (!req.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
     }
 
     try {
@@ -40,7 +25,7 @@ async function createMusic(req, res) {
         await musicModel.create({
             uri: uploadedUri,
             title,
-            artist: decoded.id
+            artist: req.user.id
         });
 
         return res.status(201).json({ message: 'Uploaded', uri: uploadedUri });
@@ -49,36 +34,29 @@ async function createMusic(req, res) {
     }
 }
 
-async function createAlbum(req,res){
-    const token = req.cookies.token;
+async function createAlbum(req, res) {
+    const { title, musicIds } = req.body;
 
-    if(!token)
-    {
-        res.status(401).json({message:"Unauthorized"});
+    if (!title) {
+        return res.status(400).json({ message: 'Title is required' });
     }
 
-    try{
-        const decoded = jwt.verify(token,process.env.JWT_SECRET_KEY);
+    if (!req.user?.id) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
 
-        if(decoded.role!=="artist")
-        {
-            return res.status(403).json({message:"Don't hace access"});
-        }
-
-        const {title,musicIds} = req.body;
+    try {
         const album = await albumModel.create({
             title,
-            artist:decoded.id,
-            music:musicIds
+            artist: req.user.id,
+            music: Array.isArray(musicIds) ? musicIds : (musicIds ? [musicIds] : [])
         });
 
-        res.status(201).json({message:"created"});
-    }
-    catch(err)
-    {
-        res.status(401).json({message:"error"});
-        console.log(err);
+        return res.status(201).json({ message: 'created', album });
+    } catch (err) {
+        console.error('createAlbum error:', err);
+        return res.status(500).json({ message: 'Internal server error', error: err.message });
     }
 }
 
-module.exports = { createMusic };
+module.exports = { createMusic, createAlbum };
